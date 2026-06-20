@@ -1,4 +1,250 @@
-# AI-Based Turkish License Plate Recognition System
+# AI-Based Turkish License Plate Recognition & Tracking System
+
+> End-to-end Turkish License Plate Recognition and Vehicle Tracking Platform built with YOLO11s, ByteTrack, PaddleOCR and Streamlit.
+
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
+![YOLO11](https://img.shields.io/badge/YOLO11-Detection-111827?logo=ultralytics&logoColor=white)
+![ByteTrack](https://img.shields.io/badge/ByteTrack-Tracking-0EA5E9)
+![PaddleOCR](https://img.shields.io/badge/PaddleOCR-OCR-2563EB)
+![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-FF4B4B?logo=streamlit&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-22C55E)
+
+This project detects Turkish license plates in images and videos, tracks them across video frames, reads plate text with OCR, validates the result against Turkish plate rules, and produces CSV, PDF, and dashboard-ready outputs.
+
+## Dashboard Overview
+
+![Dashboard](assets/dashboard_overview.png)
+
+## Analytics
+
+![Analytics](assets/dashboard_analytics.png)
+
+## Automated PDF Report
+
+![Report](assets/report_preview.png)
+
+## Architecture
+
+```mermaid
+flowchart LR
+    A[Video/Image] --> B[YOLO11 Detection]
+    B --> C[ByteTrack Tracking]
+    C --> D[Plate Crop Extraction]
+    D --> E[PaddleOCR]
+    E --> F[Plate Cleaning]
+    F --> G[Turkish Validation]
+    G --> H[Track Voting]
+    H --> I[CSV Export]
+    I --> J[PDF Report]
+    J --> K[Streamlit Dashboard]
+```
+
+## Features
+
+### Detection
+
+- YOLO11s plate detection trained on a custom Turkish license plate dataset
+- Image and video inference with configurable confidence and image size
+- Plate crop extraction with bounded coordinates and invalid-crop filtering
+
+### Tracking
+
+- ByteTrack multi-object tracking
+- Persistent Track ID assignment for video detections
+- Track summaries with first/last frame, detection count, and best crop
+
+### OCR
+
+- PaddleOCR text recognition for plate crops
+- Turkish-character normalization and plate text cleaning
+- Track-based OCR voting to select the most reliable plate text
+
+### Validation
+
+- Turkish plate regex validation for province codes `01-81`, letter blocks, and digit blocks
+- OCR confidence filtering and duplicate plate filtering
+
+### Reporting
+
+- Automated PDF generation with pipeline metrics and plate tables
+- Pipeline Summary, Detected Plates, Top Plates, System Information, and Crop Samples
+- CSV exports for OCR, tracking, unique plates, and final tracked plates
+
+### Analytics
+
+- Interactive Streamlit dashboard
+- KPI cards, plate search, analytics charts, crop viewer, CSV download, and PDF download
+
+## Model Performance
+
+| Metric | Value |
+| --- | ---: |
+| Precision | 96.6% |
+| Recall | 99.0% |
+| mAP50 | 99.4% |
+| mAP50-95 | 88.8% |
+
+Results were measured on the project's Turkish plate dataset. Real-world performance can vary with lighting, camera angle, motion blur, plate visibility, and image resolution.
+
+## Installation
+
+The project targets **Python 3.11**.
+
+```bash
+git clone https://github.com/<your-username>/AI-Turkish-License-Plate-Recognition.git
+cd AI-Turkish-License-Plate-Recognition
+python -m venv .venv
+```
+
+Activate the virtual environment:
+
+```bash
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+
+# macOS / Linux
+source .venv/bin/activate
+```
+
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+## Usage
+
+### Train
+
+```bash
+python src/training/train.py
+```
+
+### Detection
+
+```bash
+python src/main.py --source data/test.jpg
+```
+
+### Tracking
+
+```bash
+python src/main.py --source data/test.mp4 --tracking
+```
+
+### Reporting
+
+```bash
+python src/main.py --source data/test.mp4 --tracking --report
+```
+
+### Dashboard
+
+```bash
+streamlit run src/dashboard/app.py
+```
+
+The default pipeline clears prior crop and log outputs before processing. Add `--no-clean` to preserve existing outputs.
+
+## Dashboard Capabilities
+
+- KPI Cards for total tracks, unique plates, total detections, and average OCR confidence
+- Plate Search for narrowing results by plate text
+- Plotly analytics charts for detection count and OCR confidence by plate
+- Crop Viewer for available best plate crops
+- CSV Download for `final_tracked_plates.csv`
+- PDF Download for the generated license plate report
+
+## Example Output
+
+```text
+==================================
+Tracking Pipeline Summary
+=========================
+
+Tracks: 1
+Unique Plates: 1
+Best OCR Results: 1
+
+Plate:
+03ACU808
+
+Pipeline completed successfully.
+```
+
+## PDF Report
+
+When the pipeline runs with `--tracking --report`, it creates:
+
+```text
+outputs/reports/license_plate_report.pdf
+```
+
+The report includes:
+
+- Pipeline Summary
+- Detected Plates
+- Top Plates
+- System Information
+- Crop Samples
+
+## Dashboard
+
+The Streamlit dashboard turns pipeline artifacts into an interactive review interface. It provides an executive overview of detection and OCR quality, sortable plate tables, dark-theme Plotly charts, crop previews, and direct CSV/PDF downloads. The screenshots above illustrate the overview, analytics, and generated report experience.
+
+## Project Structure
+
+```text
+src/
+├── dashboard/
+│   └── app.py
+├── detection/
+│   └── crop_plates.py
+├── logging/
+│   └── duplicate_filter.py
+├── ocr/
+│   ├── batch_ocr.py
+│   ├── plate_cleaner.py
+│   └── test_ocr.py
+├── reporting/
+│   └── generate_report.py
+├── tracking/
+│   ├── plate_tracker.py
+│   └── tracked_plate_recognition.py
+└── main.py
+```
+
+## Outputs
+
+```text
+outputs/
+├── crops/                         # Detection crop outputs
+├── tracking_crops/                # Track-ID crop outputs
+├── logs/
+│   ├── plate_results.csv
+│   ├── unique_plates.csv
+│   ├── tracking_results.csv
+│   ├── tracking_summary.csv
+│   └── final_tracked_plates.csv
+└── reports/
+    └── license_plate_report.pdf
+```
+
+## Future Improvements
+
+- OCR Error Correction Layer
+- ONNX Export
+- Docker Deployment
+- Real-Time RTSP Support
+- Multi-Camera Tracking
+
+## Responsible Use
+
+License plate data may be personal data or linkable to personal data. Before deploying this system, evaluate applicable privacy, camera-use, data-retention, and local legal requirements. This project is intended for education, research, and portfolio use.
+
+Built with YOLO11, ByteTrack, PaddleOCR and Streamlit
+
+<!-- Legacy README content below is intentionally hidden.
 
 🚗 Türk araç plakalarının görüntü ve videolarda tespit edilmesi, metin olarak okunması, doğrulanması ve CSV'ye kaydedilmesi için geliştirilen **YOLO11s tabanlı** bilgisayarlı görü projesi.
 
@@ -352,3 +598,4 @@ Confidence: 0.9757
 Bu proje eğitim, araştırma ve portföy amaçlı geliştirilmiştir. Kullanımdan önce uygun bir lisans dosyası eklenmeli ve kullanılan veri setlerinin lisans koşulları ayrıca doğrulanmalıdır.
 
 Plaka bilgileri kişisel veri veya kişisel veriyle ilişkilendirilebilir nitelikte olabilir. Sistemi gerçek ortamlarda kullanmadan önce yürürlükteki kişisel verilerin korunması, gizlilik, kamera kullanımı ve yerel mevzuat yükümlülüklerinin değerlendirilmesi kullanıcının sorumluluğundadır. Bu proje hukuka aykırı izleme, takip veya veri toplama amacıyla kullanılmamalıdır.
+-->
