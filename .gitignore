@@ -1,6 +1,5 @@
 datasets/raw/
 datasets/processed/
-runs/
 models/
 outputs/
 *.pt
@@ -8,3 +7,4 @@ outputs/
 *.engine
 __pycache__/
 .env
+.venv       
