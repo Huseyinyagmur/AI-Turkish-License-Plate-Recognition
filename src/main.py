@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -18,6 +19,7 @@ from detection import crop_plates
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 CROPS_DIR = PROJECT_ROOT / "outputs" / "crops"
+LOGS_DIR = PROJECT_ROOT / "outputs" / "logs"
 OCR_CSV_PATH = PROJECT_ROOT / "outputs" / "logs" / "plate_results.csv"
 UNIQUE_CSV_PATH = PROJECT_ROOT / "outputs" / "logs" / "unique_plates.csv"
 
@@ -30,6 +32,13 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--conf", type=float, default=0.25, help="Minimum tespit güven skoru.")
     parser.add_argument("--imgsz", type=int, default=640, help="YOLO giriş görüntü boyutu.")
     parser.add_argument("--frame-step", type=int, default=10, help="Videoda işlenecek kare aralığı.")
+    parser.add_argument(
+        "--no-clean",
+        action="store_false",
+        dest="clean_outputs",
+        default=True,
+        help="Önceki crop ve log çıktılarını korur.",
+    )
     return parser.parse_args()
 
 
@@ -51,6 +60,23 @@ def validate_arguments(args: argparse.Namespace, source_path: Path, model_path: 
         raise ValueError("--imgsz pozitif bir tam sayı olmalıdır.")
     if args.frame_step <= 0:
         raise ValueError("--frame-step pozitif bir tam sayı olmalıdır.")
+
+
+def reset_output_directories() -> None:
+    """Yalnızca bu pipeline'a ait crop ve log klasörlerini güvenle yeniler."""
+    allowed_directories = (CROPS_DIR, LOGS_DIR)
+    expected_directories = (
+        (PROJECT_ROOT / "outputs" / "crops").resolve(),
+        (PROJECT_ROOT / "outputs" / "logs").resolve(),
+    )
+
+    for directory, expected_path in zip(allowed_directories, expected_directories):
+        resolved_path = directory.resolve()
+        if resolved_path != expected_path:
+            raise RuntimeError(f"Güvenli olmayan temizleme hedefi engellendi: {resolved_path}")
+        if directory.exists():
+            shutil.rmtree(directory)
+        directory.mkdir(parents=True, exist_ok=True)
 
 
 def extract_plate_crops(source_path: Path, model_path: Path, args: argparse.Namespace) -> int:
@@ -104,6 +130,14 @@ def main() -> None:
     source_path = project_path(args.source)
     model_path = project_path(args.model)
     validate_arguments(args, source_path, model_path)
+
+    if args.clean_outputs:
+        print("Cleaning previous outputs...")
+        reset_output_directories()
+    else:
+        # Temizlik kapatıldığında da gerekli çıktı dizinlerinin varlığı garanti edilir.
+        CROPS_DIR.mkdir(parents=True, exist_ok=True)
+        LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
     # Adım 1: Kaynaktaki plaka bölgelerini crop olarak kaydet.
     crop_count = extract_plate_crops(source_path, model_path, args)
