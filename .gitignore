@@ -1,0 +1,10 @@
+datasets/raw/
+datasets/processed/
+runs/
+models/
+outputs/
+*.pt
+*.onnx
+*.engine
+__pycache__/
+.env
