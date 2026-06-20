@@ -1,12 +1,26 @@
+# Dataset
 datasets/raw/
 datasets/processed/
+
+# Models
 models/
-outputs/
 *.pt
 *.onnx
 *.engine
-__pycache__/
-.env
-.venv       
-data/
 
+# Outputs
+outputs/
+runs/
+
+# Environment
+.venv/
+.env
+
+# Python
+__pycache__/
+*.pyc
+
+# Test files
+*.jpg
+*.png
+*.mp4

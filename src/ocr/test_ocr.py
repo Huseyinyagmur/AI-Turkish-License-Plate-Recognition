@@ -40,29 +40,22 @@ def main() -> None:
         raise ImportError("PaddleOCR kurulu değil. 'pip install paddleocr' komutunu çalıştırın.") from error
 
     # "tr" modeli Türkçe karakterleri de içeren Latin alfabesi için yapılandırılır.
-    ocr = PaddleOCR(
-        lang="tr",
-        use_doc_orientation_classify=False,
-        use_doc_unwarping=False,
-        use_textline_orientation=False,
-    )
-    results = ocr.predict(str(image_path))
+    ocr = PaddleOCR(lang="tr", use_angle_cls=False)
+    results = ocr.ocr(str(image_path), cls=False)
 
-    found_text = False
-    for result in results:
-        # PaddleOCR 3.x, her metin satırı için paralel metin ve skor listeleri döndürür.
-        for text, confidence in zip(result["rec_texts"], result["rec_scores"]):
-            found_text = True
-            print(f"text: {text}")
-            print(f"confidence: {float(confidence):.4f}")
+    # PaddleOCR 2.7.x: results[0] = [[box, (text, confidence)], ...]
+    if not results or not results[0]:
+        print("OCR sonucu bulunamadı.")
+        return
 
-    if not found_text:
-        print("Metin bulunamadı.")
+    for _box, (text, confidence) in results[0]:
+        print(f"Text: {text}")
+        print(f"Confidence: {float(confidence):.4f}")
 
 
 if __name__ == "__main__":
     try:
         main()
-    except (FileNotFoundError, ImportError, OSError, RuntimeError) as error:
+    except (FileNotFoundError, ImportError, OSError, RuntimeError, ValueError) as error:
         print(f"Hata: {error}", file=sys.stderr)
         sys.exit(1)
