@@ -27,6 +27,7 @@ UNIQUE_CSV_PATH = PROJECT_ROOT / "outputs" / "logs" / "unique_plates.csv"
 TRACKING_RESULTS_PATH = LOGS_DIR / "tracking_results.csv"
 TRACKING_SUMMARY_PATH = LOGS_DIR / "tracking_summary.csv"
 FINAL_TRACKED_PLATES_PATH = LOGS_DIR / "final_tracked_plates.csv"
+REPORT_PATH = PROJECT_ROOT / "outputs" / "reports" / "license_plate_report.pdf"
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -38,6 +39,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--imgsz", type=int, default=640, help="YOLO giriş görüntü boyutu.")
     parser.add_argument("--frame-step", type=int, default=10, help="Videoda işlenecek kare aralığı.")
     parser.add_argument("--tracking", action="store_true", help="ByteTrack tabanlı takip pipeline'ını çalıştırır.")
+    parser.add_argument("--report", action="store_true", help="Tracking sonuçlarından otomatik PDF raporu üretir.")
     parser.add_argument(
         "--no-clean",
         action="store_false",
@@ -175,11 +177,26 @@ def run_tracking_pipeline(source_path: Path, model_path: Path, args: argparse.Na
     )
 
 
+def run_report() -> None:
+    """Final tracking CSV'sinden PDF raporu üretir."""
+    run_script(
+        PROJECT_ROOT / "src" / "reporting" / "generate_report.py",
+        "--input",
+        str(FINAL_TRACKED_PLATES_PATH),
+        "--tracking-summary",
+        str(TRACKING_SUMMARY_PATH),
+        "--output",
+        str(REPORT_PATH),
+    )
+
+
 def main() -> None:
     args = parse_arguments()
     source_path = project_path(args.source)
     model_path = project_path(args.model)
     validate_arguments(args, source_path, model_path)
+    if args.report and not args.tracking:
+        raise ValueError("--report yalnızca --tracking ile kullanılabilir.")
 
     if args.clean_outputs:
         print("Cleaning previous outputs...")
@@ -192,6 +209,8 @@ def main() -> None:
 
     if args.tracking:
         run_tracking_pipeline(source_path, model_path, args)
+        if args.report:
+            run_report()
         print_tracking_summary(
             count_unique_plates(TRACKING_SUMMARY_PATH),
             count_distinct_csv_values(FINAL_TRACKED_PLATES_PATH, "plate"),

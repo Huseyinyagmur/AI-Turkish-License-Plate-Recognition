@@ -25,6 +25,7 @@ Bu projenin amacı, araç görüntülerindeki Türk plakalarını tek bir sını
 - ByteTrack multi-object tracking ve Track ID assignment
 - Track-bazlı OCR voting ile en güvenilir plaka sonucunun seçilmesi
 - Vehicle Re-Identification Prevention: track-bazlı oylama ile tekrar kayıtların azaltılması
+- Automated PDF Reporting ile pipeline analiz sonuçlarının profesyonel raporlanması
 - Takip ve raporlama için modüler mimari temeli
 
 ## 3. Kullanılan Teknolojiler
@@ -102,6 +103,8 @@ Turkish Plate Validation
 Track Voting
   ↓
 Final CSV
+  ↓
+PDF Report
 ```
 
 ```text
@@ -211,7 +214,7 @@ pip install -r requirements.txt
 `requirements.txt` henüz oluşturulmadıysa temel çalışma ortamı için aşağıdaki komut kullanılabilir:
 
 ```bash
-pip install ultralytics opencv-python "paddleocr==2.7.*"
+pip install ultralytics opencv-python "paddleocr==2.7.*" pandas reportlab
 ```
 
 > OCR betikleri PaddleOCR 2.7.x API'si ile uyumludur.
@@ -306,7 +309,13 @@ Video kaynaklarındaki plakaları Track ID ile izlemek ve her track için OCR oy
 python src/main.py --source data/test.mp4 --tracking
 ```
 
-Tracking modu `outputs/tracking_crops/` altında Track ID içeren crop'lar üretir. Ayrıntılı takip sonuçları `outputs/logs/tracking_results.csv`, track özeti `outputs/logs/tracking_summary.csv` ve oylama sonucu `outputs/logs/final_tracked_plates.csv` dosyasına yazılır.
+PDF raporu ile birlikte çalıştırmak için:
+
+```bash
+python src/main.py --source data/test.mp4 --tracking --report
+```
+
+Tracking modu `outputs/tracking_crops/` altında Track ID içeren crop'lar üretir. Ayrıntılı takip sonuçları `outputs/logs/tracking_results.csv`, track özeti `outputs/logs/tracking_summary.csv` ve oylama sonucu `outputs/logs/final_tracked_plates.csv` dosyasına yazılır. `--report` parametresi bu sonuçlardan `outputs/reports/license_plate_report.pdf` dosyasını üretir.
 
 🚗 Nihai hedef; kamera akışından plakayı tespit eden, okuyan, takip eden ve denetlenebilir kayıtlar üreten uçtan uca bir akıllı plaka tanıma sistemi oluşturmaktır.
 
