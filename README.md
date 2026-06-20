@@ -15,13 +15,13 @@ This project detects Turkish license plates in images and videos, tracks them ac
 
 ```mermaid
 flowchart LR
-    A[Video/Image] --> B[YOLO11 Detection]
+    A[Video/Image Input] --> B[YOLO11 Plate Detection]
     B --> C[ByteTrack Tracking]
     C --> D[Plate Crop Extraction]
     D --> E[PaddleOCR]
-    E --> F[Plate Cleaning]
-    F --> G[Turkish Validation]
-    G --> H[Track Voting]
+    E --> F[Plate Text Cleaning]
+    F --> G[Turkish Plate Validation]
+    G --> H[Track-Based Voting]
     H --> I[CSV Export]
     I --> J[PDF Report]
     J --> K[Streamlit Dashboard]
