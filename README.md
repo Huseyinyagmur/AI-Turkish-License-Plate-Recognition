@@ -11,18 +11,6 @@
 
 This project detects Turkish license plates in images and videos, tracks them across video frames, reads plate text with OCR, validates the result against Turkish plate rules, and produces CSV, PDF, and dashboard-ready outputs.
 
-## Dashboard Overview
-
-![Dashboard Overview](./assets/dashboard_overview.png)
-
-## Analytics
-
-![Dashboard Analytics](./assets/dashboard_analytics.png)
-
-## Automated PDF Report
-
-![PDF Report](./assets/report_preview.png)
-
 ## Architecture
 
 ```mermaid
@@ -243,8 +231,6 @@ outputs/
 License plate data may be personal data or linkable to personal data. Before deploying this system, evaluate applicable privacy, camera-use, data-retention, and local legal requirements. This project is intended for education, research, and portfolio use.
 
 Built with YOLO11, ByteTrack, PaddleOCR and Streamlit
-
-Dashboard and report screenshots are located in the assets directory.
 
 <!-- Legacy README content below is intentionally hidden.
 
