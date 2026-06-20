@@ -1,14 +1,14 @@
 # AI-Based Turkish License Plate Recognition System
 
-🚗 Türk araç plakalarının görüntüler üzerinde güvenilir biçimde tespit edilmesi için geliştirilen, **YOLO11s tabanlı** profesyonel bir bilgisayarlı görü projesi. Sistem, özel olarak hazırlanan Türk plaka veri seti üzerinde eğitilmiş nesne tespit modelini kullanır. İlerleyen aşamalarda tespit edilen plakaların PaddleOCR ile okunması, takip edilmesi ve kayıt altına alınması hedeflenmektedir.
+🚗 Türk araç plakalarının görüntü ve videolarda tespit edilmesi, metin olarak okunması, doğrulanması ve CSV'ye kaydedilmesi için geliştirilen **YOLO11s tabanlı** bilgisayarlı görü projesi.
 
-> **Proje durumu:** Plaka tespit modeli eğitilmiş ve değerlendirilmiştir. OCR, gerçek zamanlı işleme ve kayıt bileşenleri planlanan geliştirme aşamasındadır.
+> **Proje durumu:** Plaka tespiti, crop çıkarımı, PaddleOCR ile metin okuma, Türk plaka doğrulama ve CSV kayıt hattı tamamlanmıştır.
 
 ## 1. Proje Özeti
 
 Bu projenin amacı, araç görüntülerindeki Türk plakalarını tek bir sınıf olarak tespit eden, güçlü ve genişletilebilir bir altyapı oluşturmaktır. Model; farklı ışık koşulları, bakış açıları ve araç türlerinde plaka bölgesini bulmak üzere özel veri seti ile eğitilmiştir.
 
-🎯 İlk aşamanın odağı yüksek doğruluklu plaka tespitidir. Sonraki aşamalarda tespit edilen plaka kırpımları OCR katmanına aktarılacak, video akışındaki araçlar takip edilecek ve anlamlı kayıtlar üretilecektir.
+🎯 Tespit edilen plaka kırpımları PaddleOCR katmanına aktarılır; metin temizlenir, Türk plaka formatına göre doğrulanır ve CSV kaydı üretilir. Takip, dashboard ve otomatik raporlama sonraki aşamalardır.
 
 ## 2. Özellikler
 
@@ -19,7 +19,10 @@ Bu projenin amacı, araç görüntülerindeki Türk plakalarını tek bir sını
 - Eksik veya bozuk etiketleri ayıklayan veri seti split betiği
 - Eğitilen model için değerlendirme ve metrik takibi
 - Görüntüler üzerinde hızlı çıkarım desteği
-- OCR, takip ve raporlama için modüler mimari temeli
+- PaddleOCR ile plaka metni okuma
+- Türkçe karakter normalizasyonu, metin temizleme ve regex ile plaka doğrulama
+- Toplu OCR işleme ve CSV export
+- Takip ve raporlama için modüler mimari temeli
 
 ## 3. Kullanılan Teknolojiler
 
@@ -30,7 +33,8 @@ Bu projenin amacı, araç görüntülerindeki Türk plakalarını tek bir sını
 | PyTorch | Derin öğrenme çalışma zamanı |
 | OpenCV | Görüntü okuma, işleme ve görselleştirme |
 | YAML | YOLO veri seti yapılandırması |
-| PaddleOCR *(planlanan)* | Tespit edilen plakaların metin olarak okunması |
+| PaddleOCR | Tespit edilen plaka crop'larının metin olarak okunması |
+| CSV | OCR sonuçlarının kayıt altına alınması |
 | ByteTrack *(planlanan)* | Video içindeki araç/plaka takibi |
 
 ## 4. Veri Seti
@@ -59,6 +63,24 @@ Koordinatlar görüntü boyutuna göre normalize edilir ve `0–1` aralığında
 
 ## 5. Proje Mimarisi
 
+Güncel işlem hattı:
+
+```text
+Video / Image
+      ↓
+YOLO11s Detection
+      ↓
+Plate Crop Extraction
+      ↓
+PaddleOCR
+      ↓
+Plate Text Cleaning
+      ↓
+Turkish Plate Validation
+      ↓
+CSV Logging
+```
+
 ```text
 Ham görseller + YOLO etiketleri
             │
@@ -71,9 +93,9 @@ YOLO11s özel model eğitimi
             ▼
 Plaka tespiti ve performans değerlendirmesi
             │
-            ├──► PaddleOCR ile plaka okuma (planlanan)
+            ├──► PaddleOCR ile plaka okuma ve CSV kaydı
             ├──► ByteTrack ile araç takibi (planlanan)
-            └──► CSV / dashboard / raporlama (planlanan)
+            └──► Dashboard / raporlama (planlanan)
 ```
 
 ⚡ Modüler yapı sayesinde tespit, OCR, takip, kayıt ve arayüz bileşenleri birbirinden bağımsız geliştirilebilir.
@@ -89,8 +111,12 @@ AI-Turkish-License-Plate-Recognition/
 │   ├── detection/                   # Tespit modeli çıktıları
 │   └── ocr/                         # OCR modelleri için ayrılan alan
 ├── src/
-│   ├── detection/                   # Tespit modülleri
-│   ├── ocr/                         # OCR modülleri
+│   ├── detection/
+│   │   └── crop_plates.py           # Tespit ve plaka crop çıkarımı
+│   ├── ocr/
+│   │   ├── test_ocr.py              # Tek crop OCR testi
+│   │   ├── plate_cleaner.py         # Metin temizleme ve doğrulama
+│   │   └── batch_ocr.py             # Toplu OCR ve CSV export
 │   ├── tracking/                    # Takip modülleri
 │   ├── logging/                     # Kayıt modülleri
 │   ├── dashboard/                   # Dashboard bileşenleri
@@ -159,11 +185,13 @@ Bağımlılıkları yükleyin:
 pip install -r requirements.txt
 ```
 
-`requirements.txt` henüz oluşturulmadıysa temel eğitim ortamı için aşağıdaki komut kullanılabilir:
+`requirements.txt` henüz oluşturulmadıysa temel çalışma ortamı için aşağıdaki komut kullanılabilir:
 
 ```bash
-pip install ultralytics opencv-python
+pip install ultralytics opencv-python "paddleocr==2.7.*"
 ```
+
+> OCR betikleri PaddleOCR 2.7.x API'si ile uyumludur.
 
 ## 11. Eğitim Komutu Örneği
 
@@ -181,47 +209,76 @@ yolo detect train \
 
 Eğitim parametreleri; epoch sayısı, görüntü boyutu, batch size ve cihaz seçimi kullanıcının donanımına ve veri setine göre güncellenebilir.
 
-## 12. Çıkarım (Inference) Örneği
+## 12. Görüntü veya Video Prediction
 
-Eğitilmiş ağırlıklarla bir görsel üzerinde plaka tespiti yapmak için:
+Eğitilmiş ağırlıklarla bir görsel veya video kaynağında plaka tespiti yapmak için:
 
 ```bash
 yolo detect predict \
-  model=models/detection/turkish_plate_yolo11s/weights/best.pt \
-  source=ornek_gorsel.jpg \
+  model=models/detection/best.pt \
+  source=data/test.mp4 \
   conf=0.25 \
   save=True
 ```
 
-Tahmin görselleri varsayılan olarak Ultralytics çıktı dizinine kaydedilir. Uygulama katmanında bu sonuçlar `outputs/predictions/` altında düzenli biçimde saklanacak şekilde genişletilebilir.
+`source` değerine görüntü yolu verildiğinde aynı komut fotoğraf üzerinde de çalışır.
 
-## 13. Gelecek Çalışmalar
+## 13. Plate Crop Extraction
 
-- PaddleOCR entegrasyonu ile tespit edilen plakaların metin olarak okunması
-- Gerçek zamanlı video işleme desteği
-- ByteTrack entegrasyonu ile araç ve plaka takibi
-- Duplicate plate filtering ile tekrarlanan kayıtların filtrelenmesi
-- CSV logging ile tespit geçmişinin saklanması
-- Dashboard ve raporlama sistemi
-- Tam otomatik plaka kayıt sistemi
+Tespit edilen plakaları görüntü veya videodan crop olarak kaydetmek için:
+
+```bash
+python src/detection/crop_plates.py \
+  --source data/test.mp4 \
+  --model models/detection/best.pt \
+  --output outputs/crops \
+  --frame-step 10
+```
+
+`--frame-step 10` videodaki her onuncu kareyi işler. Tek görüntü kaynaklarında frame skipping uygulanmaz.
+
+## 14. Tek Crop OCR Testi
+
+```bash
+python src/ocr/test_ocr.py --image outputs/crops/sample.jpg
+```
+
+Komut, bulunan her metin için OCR metnini ve güven skorunu terminale yazar.
+
+## 15. Batch OCR ve CSV Export
+
+`outputs/crops/` içindeki tüm `.jpg`, `.jpeg` ve `.png` crop'larını OCR ile okuyup CSV dosyasına aktarın:
+
+```bash
+python src/ocr/batch_ocr.py --input outputs/crops --output outputs/logs/plate_results.csv
+```
+
+İsteğe bağlı olarak minimum OCR güven eşiği verilebilir:
+
+```bash
+python src/ocr/batch_ocr.py --min-ocr-conf 0.70
+```
+
+CSV şu alanları içerir:
+
+```text
+file_name, raw_text, cleaned_text, ocr_confidence, is_valid, image_path
+```
+
+Metin temizleme aşamasında boşluklar ve özel karakterler kaldırılır; Türkçe karakterler Latin karşılıklarına dönüştürülür. Doğrulama, `01-81` il kodu, 1-3 harf ve 2-4 rakam kuralına göre yapılır. Eşik altındaki OCR sonuçları CSV'ye yazılır, ancak geçersiz olarak işaretlenir.
+
+## 16. Gelecek Çalışmalar
+
+- Duplicate plate filtering ile tekrarlanan plakaların filtrelenmesi
+- Tespit, crop, OCR ve kayıt aşamalarını birleştiren full video OCR pipeline
+- ByteTrack ile araç ve plaka takibi
+- Sonuçların izlenebileceği dashboard
+- Otomatik raporlama ve bildirimler
 
 🚗 Nihai hedef; kamera akışından plakayı tespit eden, okuyan, takip eden ve denetlenebilir kayıtlar üreten uçtan uca bir akıllı plaka tanıma sistemi oluşturmaktır.
 
-## 14. Lisans ve Sorumluluk Reddi
+## 17. Lisans ve Sorumluluk Reddi
 
 Bu proje eğitim, araştırma ve portföy amaçlı geliştirilmiştir. Kullanımdan önce uygun bir lisans dosyası eklenmeli ve kullanılan veri setlerinin lisans koşulları ayrıca doğrulanmalıdır.
 
 Plaka bilgileri kişisel veri veya kişisel veriyle ilişkilendirilebilir nitelikte olabilir. Sistemi gerçek ortamlarda kullanmadan önce yürürlükteki kişisel verilerin korunması, gizlilik, kamera kullanımı ve yerel mevzuat yükümlülüklerinin değerlendirilmesi kullanıcının sorumluluğundadır. Bu proje hukuka aykırı izleme, takip veya veri toplama amacıyla kullanılmamalıdır.
-
-<!--
-
-## Project Structure
-
-```text
-AI-Turkish-License-Plate-Recognition/
-├── datasets/
-├── models/
-├── src/
-├── outputs/
-├── notebooks/
-└── README.md
