@@ -21,6 +21,4 @@ __pycache__/
 *.pyc
 
 # Test files
-*.jpg
-*.png
-*.mp4
+data/
