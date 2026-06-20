@@ -217,7 +217,7 @@ pip install -r requirements.txt
 `requirements.txt` henüz oluşturulmadıysa temel çalışma ortamı için aşağıdaki komut kullanılabilir:
 
 ```bash
-pip install ultralytics opencv-python "paddleocr==2.7.*" pandas reportlab
+pip install ultralytics opencv-python "paddleocr==2.7.*" pandas reportlab streamlit plotly
 ```
 
 > OCR betikleri PaddleOCR 2.7.x API'si ile uyumludur.

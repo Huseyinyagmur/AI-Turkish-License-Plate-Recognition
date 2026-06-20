@@ -111,22 +111,26 @@ def resolve_crop_path(path_value: Any) -> Path | None:
 
 
 def display_crop_gallery(final_dataframe: pd.DataFrame) -> None:
-    """Mevcut en iyi crop görsellerini, en fazla beş plaka için gösterir."""
+    """En yüksek güvenli en fazla beş plakanın crop görsellerini kartlar halinde gösterir."""
     if "best_crop_path" not in final_dataframe.columns:
         return
 
     gallery_rows = final_dataframe.sort_values("plate_confidence", ascending=False).head(5)
-    images = []
-    captions = []
+    valid_crops: list[tuple[str, float, Path]] = []
     for _, row in gallery_rows.iterrows():
         crop_path = resolve_crop_path(row["best_crop_path"])
         if crop_path is not None:
-            images.append(str(crop_path))
-            captions.append(f"{row['plate']} | confidence: {float(row['plate_confidence']):.4f}")
+            valid_crops.append((str(row["plate"]), float(row["plate_confidence"]), crop_path))
 
-    if images:
+    if valid_crops:
         st.subheader("Best Plate Crop Samples")
-        st.image(images, caption=captions, width=220)
+        for index in range(0, len(valid_crops), 3):
+            columns = st.columns(3)
+            for column, (plate, confidence, crop_path) in zip(columns, valid_crops[index : index + 3]):
+                with column:
+                    st.markdown(f"**Plate:** {plate}")
+                    st.markdown(f"**Confidence:** {confidence:.4f}")
+                    st.image(str(crop_path), use_container_width=True)
     else:
         st.info("Gösterilebilecek crop görüntüsü bulunamadı.")
 
@@ -135,30 +139,75 @@ def display_downloads() -> None:
     """Final CSV ve varsa PDF rapor için indirme düğmeleri sunar."""
     st.subheader("Downloads")
     st.download_button(
-        "Final CSV'yi indir",
+        "📊 Download CSV Results",
         data=FINAL_CSV_PATH.read_bytes(),
         file_name="final_tracked_plates.csv",
         mime="text/csv",
     )
     if REPORT_PATH.is_file():
         st.download_button(
-            "PDF raporunu indir",
+            "📄 Download PDF Report",
             data=REPORT_PATH.read_bytes(),
             file_name="license_plate_report.pdf",
             mime="application/pdf",
         )
     else:
-        st.info("PDF raporu henüz üretilmedi. Pipeline'ı --tracking --report ile çalıştırın.")
+        st.warning("PDF report not found. Run the pipeline with --tracking --report.")
+
+
+def display_analytics(final_dataframe: pd.DataFrame) -> None:
+    """Plaka bazında detection ve OCR güven grafiklerini Plotly ile gösterir."""
+    grouped_dataframe = (
+        final_dataframe.groupby("plate", as_index=False)
+        .agg(detection_count=("detection_count", "sum"), plate_confidence=("plate_confidence", "mean"))
+        .sort_values("detection_count", ascending=False)
+    )
+    if grouped_dataframe.empty:
+        st.info("Analiz için yeterli plaka verisi bulunamadı.")
+        return
+
+    st.subheader("Detection Count by Plate")
+    detection_chart = px.bar(
+        grouped_dataframe,
+        x="plate",
+        y="detection_count",
+        color="detection_count",
+        color_continuous_scale="Blues",
+        template="plotly_dark",
+        labels={"plate": "Plate", "detection_count": "Detection Count"},
+    )
+    st.plotly_chart(detection_chart, use_container_width=True)
+
+    st.subheader("OCR Confidence by Plate")
+    confidence_chart = px.bar(
+        grouped_dataframe.sort_values("plate_confidence", ascending=False),
+        x="plate",
+        y="plate_confidence",
+        color="plate_confidence",
+        color_continuous_scale="Viridis",
+        template="plotly_dark",
+        labels={"plate": "Plate", "plate_confidence": "Average OCR Confidence"},
+    )
+    confidence_chart.update_yaxes(range=[0, 1])
+    st.plotly_chart(confidence_chart, use_container_width=True)
+
+    st.subheader("Top Plates Table")
+    st.dataframe(grouped_dataframe, use_container_width=True, hide_index=True)
 
 
 def main() -> None:
     """Dashboard sayfasını oluşturur ve pipeline çıktılarını görselleştirir."""
     st.set_page_config(page_title="Turkish License Plate Recognition", page_icon="🚗", layout="wide")
+    apply_dashboard_style()
+    display_system_information()
     st.title("AI-Based Turkish License Plate Recognition Dashboard")
-    st.caption("YOLO11s + ByteTrack + PaddleOCR pipeline sonuçları")
+    st.markdown(
+        "<div class='dashboard-subtitle'>End-to-End Vehicle Tracking and Turkish License Plate Recognition Platform</div>",
+        unsafe_allow_html=True,
+    )
 
     if not FINAL_CSV_PATH.is_file():
-        st.warning("Önce pipeline çalıştırılmalıdır.")
+        st.warning("No tracking results found. Please run the pipeline first.")
         st.stop()
 
     try:
@@ -181,29 +230,42 @@ def main() -> None:
     unique_dataframe = read_optional_csv(UNIQUE_PLATES_PATH)
     display_metrics(final_dataframe, summary_dataframe)
 
-    detected_tab, rankings_tab, gallery_tab = st.tabs(["Detected Plates", "Rankings", "Crops & Downloads"])
+    search_query = st.text_input("🔍 Plate Search", placeholder="Örnek: 03")
+    filtered_dataframe = final_dataframe
+    if search_query.strip():
+        filtered_dataframe = final_dataframe[
+            final_dataframe["plate"].astype(str).str.contains(search_query.strip(), case=False, na=False, regex=False)
+        ].copy()
+    st.caption(f"Gösterilen plaka kaydı: {len(filtered_dataframe)} / {len(final_dataframe)}")
+
+    detected_tab, rankings_tab, analytics_tab, gallery_tab = st.tabs(
+        ["Detected Plates", "Rankings", "Analytics", "Crops & Downloads"]
+    )
     with detected_tab:
         st.subheader("Detected Plates")
-        st.dataframe(final_dataframe, use_container_width=True, hide_index=True)
+        st.dataframe(filtered_dataframe, use_container_width=True, hide_index=True)
         if unique_dataframe is not None:
             st.caption(f"Ek tekilleştirme CSV'sinde {len(unique_dataframe)} kayıt bulunuyor.")
 
     with rankings_tab:
         st.subheader("Highest Confidence Plates")
         st.dataframe(
-            final_dataframe.sort_values("plate_confidence", ascending=False).head(10),
+            filtered_dataframe.sort_values("plate_confidence", ascending=False).head(10),
             use_container_width=True,
             hide_index=True,
         )
         st.subheader("Most Frequently Detected Plates")
         st.dataframe(
-            final_dataframe.sort_values("detection_count", ascending=False).head(10),
+            filtered_dataframe.sort_values("detection_count", ascending=False).head(10),
             use_container_width=True,
             hide_index=True,
         )
 
+    with analytics_tab:
+        display_analytics(filtered_dataframe)
+
     with gallery_tab:
-        display_crop_gallery(final_dataframe)
+        display_crop_gallery(filtered_dataframe)
         display_downloads()
 
 
