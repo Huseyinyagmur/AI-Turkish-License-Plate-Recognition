@@ -3,6 +3,7 @@
 Örnekler:
     python src/main.py --source data/test.mp4
     python src/main.py --source data/test.jpg
+    python src/main.py --source data/test.mp4 --tracking
 """
 
 from __future__ import annotations
@@ -19,9 +20,13 @@ from detection import crop_plates
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 CROPS_DIR = PROJECT_ROOT / "outputs" / "crops"
+TRACKING_CROPS_DIR = PROJECT_ROOT / "outputs" / "tracking_crops"
 LOGS_DIR = PROJECT_ROOT / "outputs" / "logs"
 OCR_CSV_PATH = PROJECT_ROOT / "outputs" / "logs" / "plate_results.csv"
 UNIQUE_CSV_PATH = PROJECT_ROOT / "outputs" / "logs" / "unique_plates.csv"
+TRACKING_RESULTS_PATH = LOGS_DIR / "tracking_results.csv"
+TRACKING_SUMMARY_PATH = LOGS_DIR / "tracking_summary.csv"
+FINAL_TRACKED_PLATES_PATH = LOGS_DIR / "final_tracked_plates.csv"
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -32,6 +37,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--conf", type=float, default=0.25, help="Minimum tespit güven skoru.")
     parser.add_argument("--imgsz", type=int, default=640, help="YOLO giriş görüntü boyutu.")
     parser.add_argument("--frame-step", type=int, default=10, help="Videoda işlenecek kare aralığı.")
+    parser.add_argument("--tracking", action="store_true", help="ByteTrack tabanlı takip pipeline'ını çalıştırır.")
     parser.add_argument(
         "--no-clean",
         action="store_false",
@@ -64,9 +70,10 @@ def validate_arguments(args: argparse.Namespace, source_path: Path, model_path: 
 
 def reset_output_directories() -> None:
     """Yalnızca bu pipeline'a ait crop ve log klasörlerini güvenle yeniler."""
-    allowed_directories = (CROPS_DIR, LOGS_DIR)
+    allowed_directories = (CROPS_DIR, TRACKING_CROPS_DIR, LOGS_DIR)
     expected_directories = (
         (PROJECT_ROOT / "outputs" / "crops").resolve(),
+        (PROJECT_ROOT / "outputs" / "tracking_crops").resolve(),
         (PROJECT_ROOT / "outputs" / "logs").resolve(),
     )
 
@@ -114,6 +121,14 @@ def count_unique_plates(csv_path: Path) -> int:
         return sum(1 for _ in csv.DictReader(csv_file))
 
 
+def count_distinct_csv_values(csv_path: Path, column_name: str) -> int:
+    """Bir CSV kolonundaki boş olmayan benzersiz değerleri sayar."""
+    with csv_path.open(newline="", encoding="utf-8-sig") as csv_file:
+        values = {(row.get(column_name) or "").strip() for row in csv.DictReader(csv_file)}
+    values.discard("")
+    return len(values)
+
+
 def print_summary(crop_count: int, ocr_count: int, unique_plate_count: int) -> None:
     """Pipeline sonucunu istenen kısa özet biçiminde yazdırır."""
     print("==================================")
@@ -123,6 +138,41 @@ def print_summary(crop_count: int, ocr_count: int, unique_plate_count: int) -> N
     print(f"OCR Sonucu: {ocr_count}")
     print(f"Benzersiz Plaka: {unique_plate_count}")
     print("CSV: outputs/logs/unique_plates.csv")
+
+
+def print_tracking_summary(track_count: int, unique_plate_count: int, best_ocr_count: int) -> None:
+    """ByteTrack pipeline sonucunun kısa özetini yazdırır."""
+    print("==================================")
+    print("Tracking Pipeline Summary")
+    print("==================================")
+    print(f"Tracks: {track_count}")
+    print(f"Unique Plates: {unique_plate_count}")
+    print(f"Best OCR Results: {best_ocr_count}")
+    print("CSV: outputs/logs/final_tracked_plates.csv")
+
+
+def run_tracking_pipeline(source_path: Path, model_path: Path, args: argparse.Namespace) -> None:
+    """ByteTrack crop üretimi ve track-bazlı OCR oylamasını sırayla çalıştırır."""
+    run_script(
+        PROJECT_ROOT / "src" / "tracking" / "plate_tracker.py",
+        "--source",
+        str(source_path),
+        "--model",
+        str(model_path),
+        "--conf",
+        str(args.conf),
+        "--imgsz",
+        str(args.imgsz),
+        "--frame-step",
+        str(args.frame_step),
+    )
+    run_script(
+        PROJECT_ROOT / "src" / "tracking" / "tracked_plate_recognition.py",
+        "--input",
+        str(TRACKING_RESULTS_PATH),
+        "--output",
+        str(FINAL_TRACKED_PLATES_PATH),
+    )
 
 
 def main() -> None:
@@ -137,7 +187,18 @@ def main() -> None:
     else:
         # Temizlik kapatıldığında da gerekli çıktı dizinlerinin varlığı garanti edilir.
         CROPS_DIR.mkdir(parents=True, exist_ok=True)
+        TRACKING_CROPS_DIR.mkdir(parents=True, exist_ok=True)
         LOGS_DIR.mkdir(parents=True, exist_ok=True)
+
+    if args.tracking:
+        run_tracking_pipeline(source_path, model_path, args)
+        print_tracking_summary(
+            count_unique_plates(TRACKING_SUMMARY_PATH),
+            count_distinct_csv_values(FINAL_TRACKED_PLATES_PATH, "plate"),
+            count_unique_plates(FINAL_TRACKED_PLATES_PATH),
+        )
+        print("Pipeline completed successfully.")
+        return
 
     # Adım 1: Kaynaktaki plaka bölgelerini crop olarak kaydet.
     crop_count = extract_plate_crops(source_path, model_path, args)
