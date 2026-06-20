@@ -2,6 +2,7 @@
 
 Example:
     python src/detection/crop_plates.py --source path/to/video.mp4
+    python src/detection/crop_plates.py --source data/test.mp4 --conf 0.25 --imgsz 640 --frame-step 10
 """
 
 from __future__ import annotations
@@ -47,6 +48,12 @@ def parse_arguments() -> argparse.Namespace:
     )
     parser.add_argument(
         "--imgsz", type=int, default=640, help="YOLO giriş görüntü boyutu (varsayılan: 640)."
+    )
+    parser.add_argument(
+        "--frame-step",
+        type=int,
+        default=10,
+        help="Videoda tespit yapılacak kare aralığı (varsayılan: 10).",
     )
     return parser.parse_args()
 
@@ -95,33 +102,44 @@ def process_frame(frame, frame_number: int, model: YOLO, args: argparse.Namespac
     return save_plate_crops(frame, frame_number, results[0], output_dir)
 
 
-def process_image(source_path: Path, model: YOLO, args: argparse.Namespace, output_dir: Path) -> int:
+def process_image(
+    source_path: Path, model: YOLO, args: argparse.Namespace, output_dir: Path
+) -> tuple[int, int, int]:
     """Process one still image; images always use frame number zero."""
     image = cv2.imread(str(source_path))
     if image is None:
         raise ValueError(f"Görüntü okunamadı: {source_path}")
-    return process_frame(image, frame_number=0, model=model, args=args, output_dir=output_dir)
+    crop_count = process_frame(image, frame_number=0, model=model, args=args, output_dir=output_dir)
+    # Still images are always processed once; --frame-step does not apply.
+    return 1, 1, crop_count
 
 
-def process_video(source_path: Path, model: YOLO, args: argparse.Namespace, output_dir: Path) -> int:
-    """Process every readable frame in a video file."""
+def process_video(
+    source_path: Path, model: YOLO, args: argparse.Namespace, output_dir: Path
+) -> tuple[int, int, int]:
+    """Read every video frame and run detection only at the requested interval."""
     capture = cv2.VideoCapture(str(source_path))
     if not capture.isOpened():
         raise ValueError(f"Video açılamadı: {source_path}")
 
     total_crops = 0
     frame_number = 0
+    processed_frame_count = 0
+    detection_frame_count = 0
     try:
         while True:
             success, frame = capture.read()
             if not success:
                 break
-            total_crops += process_frame(frame, frame_number, model, args, output_dir)
+            processed_frame_count += 1
+            if frame_number % args.frame_step == 0:
+                detection_frame_count += 1
+                total_crops += process_frame(frame, frame_number, model, args, output_dir)
             frame_number += 1
     finally:
         capture.release()
 
-    return total_crops
+    return processed_frame_count, detection_frame_count, total_crops
 
 
 def main() -> None:
@@ -130,6 +148,9 @@ def main() -> None:
         raise ValueError("--conf değeri 0 ile 1 arasında olmalıdır.")
     if args.imgsz <= 0:
         raise ValueError("--imgsz pozitif bir tam sayı olmalıdır.")
+
+    if args.frame_step <= 0:
+        raise ValueError("--frame-step pozitif bir tam sayı olmalıdır.")
 
     source_path = project_path(args.source)
     model_path = project_path(args.model)
@@ -144,9 +165,12 @@ def main() -> None:
     model = YOLO(str(model_path))
 
     if source_path.suffix.lower() in IMAGE_EXTENSIONS:
-        total_crops = process_image(source_path, model, args, output_dir)
+        processed_frames, detection_frames, total_crops = process_image(source_path, model, args, output_dir)
     else:
-        total_crops = process_video(source_path, model, args, output_dir)
+        processed_frames, detection_frames, total_crops = process_video(source_path, model, args, output_dir)
+
+    print(f"Toplam işlenen frame sayısı: {processed_frames}")
+    print(f"Detection yapılan frame sayısı: {detection_frames}")
 
     print(f"Toplam kaydedilen plaka crop sayısı: {total_crops}")
 
