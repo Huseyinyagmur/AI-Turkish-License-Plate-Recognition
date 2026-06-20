@@ -2,13 +2,13 @@
 
 🚗 Türk araç plakalarının görüntü ve videolarda tespit edilmesi, metin olarak okunması, doğrulanması ve CSV'ye kaydedilmesi için geliştirilen **YOLO11s tabanlı** bilgisayarlı görü projesi.
 
-> **Proje durumu:** Plaka tespiti, ByteTrack tabanlı takip, crop çıkarımı, PaddleOCR ile metin okuma, Türk plaka doğrulama ve CSV kayıt hattı tamamlanmıştır.
+> **Proje durumu:** Plaka tespiti, ByteTrack tabanlı takip, crop çıkarımı, PaddleOCR ile metin okuma, Türk plaka doğrulama, CSV kayıt hattı ve otomatik PDF raporlama tamamlanmıştır.
 
 ## 1. Proje Özeti
 
 Bu projenin amacı, araç görüntülerindeki Türk plakalarını tek bir sınıf olarak tespit eden, güçlü ve genişletilebilir bir altyapı oluşturmaktır. Model; farklı ışık koşulları, bakış açıları ve araç türlerinde plaka bölgesini bulmak üzere özel veri seti ile eğitilmiştir.
 
-🎯 Tespit edilen plaka kırpımları PaddleOCR katmanına aktarılır; metin temizlenir, Türk plaka formatına göre doğrulanır ve CSV kaydı üretilir. ByteTrack ile takip tamamlanmıştır; dashboard ve otomatik raporlama sonraki aşamalardır.
+🎯 Tespit edilen plaka kırpımları PaddleOCR katmanına aktarılır; metin temizlenir, Türk plaka formatına göre doğrulanır, CSV kaydı üretilir ve istenirse PDF rapor olarak sunulur. ByteTrack ile takip ve otomatik raporlama tamamlanmıştır.
 
 ## 2. Özellikler
 
@@ -26,6 +26,9 @@ Bu projenin amacı, araç görüntülerindeki Türk plakalarını tek bir sını
 - Track-bazlı OCR voting ile en güvenilir plaka sonucunun seçilmesi
 - Vehicle Re-Identification Prevention: track-bazlı oylama ile tekrar kayıtların azaltılması
 - Automated PDF Reporting ile pipeline analiz sonuçlarının profesyonel raporlanması
+- Pipeline Summary Report
+- Detected Plates Table
+- Best Plate Crop Samples
 - Takip ve raporlama için modüler mimari temeli
 
 ## 3. Kullanılan Teknolojiler
@@ -88,23 +91,23 @@ CSV Logging
 Tracking modu için işlem hattı:
 
 ```text
-Video
-  ↓
-YOLO11s
-  ↓
-ByteTrack
-  ↓
-Crop Extraction
-  ↓
+Video / Image
+      ↓
+YOLO11s Detection
+      ↓
+ByteTrack Tracking
+      ↓
+Plate Crop Extraction
+      ↓
 PaddleOCR
-  ↓
+      ↓
 Turkish Plate Validation
-  ↓
-Track Voting
-  ↓
-Final CSV
-  ↓
-PDF Report
+      ↓
+Track-Based OCR Voting
+      ↓
+CSV Export
+      ↓
+Automated PDF Report
 ```
 
 ```text
@@ -295,11 +298,16 @@ Metin temizleme aşamasında boşluklar ve özel karakterler kaldırılır; Tür
 
 ## 16. Gelecek Çalışmalar
 
-- Duplicate plate filtering ile tekrarlanan plakaların filtrelenmesi
-- Tespit, crop, OCR ve kayıt aşamalarını birleştiren full video OCR pipeline
-- Track kimlikleri arasında uzun süreli vehicle re-identification
-- Sonuçların izlenebileceği dashboard
-- Otomatik raporlama ve bildirimler
+Tamamlanan:
+
+- ✅ Automated PDF Reporting
+
+Kalan çalışmalar:
+
+- Streamlit Dashboard
+- OCR Correction Layer
+- ONNX Export
+- Docker Support
 
 ## 17. ByteTrack ile Video Takibi
 
@@ -317,9 +325,29 @@ python src/main.py --source data/test.mp4 --tracking --report
 
 Tracking modu `outputs/tracking_crops/` altında Track ID içeren crop'lar üretir. Ayrıntılı takip sonuçları `outputs/logs/tracking_results.csv`, track özeti `outputs/logs/tracking_summary.csv` ve oylama sonucu `outputs/logs/final_tracked_plates.csv` dosyasına yazılır. `--report` parametresi bu sonuçlardan `outputs/reports/license_plate_report.pdf` dosyasını üretir.
 
+## 18. PDF Rapor Çıktısı
+
+PDF raporu şu konuma kaydedilir:
+
+```text
+outputs/reports/license_plate_report.pdf
+```
+
+Rapor; pipeline özeti, tespit edilen plakalar tablosu, en sık görülen plakalar, sistem bilgileri ve varsa en iyi plaka crop örneklerini içerir.
+
+Örnek rapor çıktısı:
+
+```text
+Total Tracks: 1
+Unique Plates: 1
+Total Detections: 24
+Detected Plate: 03ACU808
+Confidence: 0.9757
+```
+
 🚗 Nihai hedef; kamera akışından plakayı tespit eden, okuyan, takip eden ve denetlenebilir kayıtlar üreten uçtan uca bir akıllı plaka tanıma sistemi oluşturmaktır.
 
-## 18. Lisans ve Sorumluluk Reddi
+## 19. Lisans ve Sorumluluk Reddi
 
 Bu proje eğitim, araştırma ve portföy amaçlı geliştirilmiştir. Kullanımdan önce uygun bir lisans dosyası eklenmeli ve kullanılan veri setlerinin lisans koşulları ayrıca doğrulanmalıdır.
 
